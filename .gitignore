@@ -3,3 +3,4 @@ build/
 dist/
 pymacco.egg-info
 tags
+*.swp
