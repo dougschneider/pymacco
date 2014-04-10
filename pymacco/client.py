@@ -69,13 +69,34 @@ class PymaccoClient(object):
             listener.update(event, *args, **kwargs)
 
     def connect(self, host, port):
+
+        if self.connected:
+            raise Exception("Already connected to a server")
+
+        def connectionMade(root):
+            log.msg("connection to the server created")
+            self.connected = True
+            return True
+
+        def connectionFailed(reason):
+            log.msg("connection to the server failed")
+            self.host = None
+            self.port = None
+            return False
+
         reactor.connectTCP(host, port, self.factory)
-        self.connected = True
+        root = self.factory.getRootObject()
         self.host = host
         self.port = port
+        root.addCallbacks(connectionMade, connectionFailed)
+        return root
 
     def disconnect(self):
+        if not self.connected:
+            raise Exception("Not connected to a server")
+
         self.factory.disconnect()
+        self.connected = False
 
     def errback(self, failure):
         log.msg("\n\nError: %s" % failure.getErrorMessage())
