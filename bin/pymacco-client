@@ -21,6 +21,7 @@ except ImportError:
 
 from pymacco.ui.cli import PymaccoClientCommandProcessor
 from pymacco.client import PymaccoClient
+from pymacco.common.config import CLIENT_LOG
 
 
 def parseArgs(args):
@@ -33,7 +34,7 @@ def parseArgs(args):
 
 def main(args):
     opts, args = parseArgs(args)
-    log.startLogging(sys.stdout)
+    log.startLogging(open(CLIENT_LOG, 'w+'))
     # TODO: pull this ui-specific code into a `pymacco.ui.run` method
     #       or something
     client = PymaccoClient()

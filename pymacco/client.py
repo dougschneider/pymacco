@@ -82,7 +82,7 @@ class PymaccoClient(object):
             log.msg("connection to the server failed")
             self.host = None
             self.port = None
-            return False
+            return True
 
         reactor.connectTCP(host, port, self.factory)
         root = self.factory.getRootObject()

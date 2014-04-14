@@ -103,14 +103,14 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         """connect <hostname> <port>: Connect to the given server.
         """
         def completeConnection(success):
-            if success:
+            if self.client.connected is True:
                 self.sendLine("Successfully connected to %s." % hostname)
             else:
                 self.sendLine("Failed to connect to %s." % hostname)
 
         self.sendLine("Connecting to %s." % hostname, False)
         root = self.client.connect(hostname, int(port))
-        root.addCallbacks(completeConnection, completeConnection)
+        root.addCallback(completeConnection)
 
     def do_disconnect(self):
         """ disconnect: Disconnect from the current server.
