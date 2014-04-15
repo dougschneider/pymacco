@@ -37,6 +37,7 @@ class PymaccoClient(object):
 
     def __init__(self):
         self.listeners = []
+        self.avatar = None
         self.connected = False
         self.host = None
         self.port = None
