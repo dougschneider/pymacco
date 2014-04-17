@@ -19,8 +19,8 @@ except ImportError:
     sys.path.insert(0, projectDir)
     import pymacco # NOQA
 
-from pymacco.ui.cli import PymaccoClientCommandProcessor
-from pymacco.client import PymaccoClient
+from pymacco.client.ui.cli import PymaccoClientCommandProcessor
+from pymacco.client.client import PymaccoClient
 from pymacco.common.config import CLIENT_LOG
 
 
