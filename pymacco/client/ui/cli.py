@@ -70,8 +70,11 @@ class BaseCommandProcessor(basic.LineReceiver):
         if command is None:
             self.sendLine("Error: No such command.")
             return
+        elif not command.isUsable():
+            self.sendLine("Error: Command not currently available.")
+            return
 
-        if args < len(command.requiredArguments):
+        if len(args) < len(command.requiredArguments):
             self.sendLine(command.getHelp())
             return
 
@@ -86,10 +89,10 @@ class ExtendedCommandProcessor(BaseCommandProcessor):
         self.commands.extend(
                 [Command("help",
                          "List commands, or show help of the given command.",
-                         self.do_help, [argument.COMMAND]),
+                         self.do_help, [argument.COMMAND], []),
                  Command("quit",
                          "Quit this session.",
-                         self.do_quit, [])])
+                         self.do_quit, [], [])])
 
     def do_help(self, command=None):
         if command:
@@ -99,11 +102,14 @@ class ExtendedCommandProcessor(BaseCommandProcessor):
                     matchingCommand = c
 
             if matchingCommand is not None:
-                self.sendLine(matchingCommand.getHelp())
+                if not matchingCommand.isUsable():
+                    self.sendLine("Error: Command not currently available.")
+                else:
+                    self.sendLine(matchingCommand.getHelp())
             else:
                 self.sendLine("Error: No such command.")
         else:
-            commands = [c.name for c in self.commands]
+            commands = [c.name for c in self.commands if c.isUsable()]
             self.sendLine('Valid commands:\n\t' + '\n\t'.join(commands))
 
     def do_quit(self):
@@ -112,9 +118,6 @@ class ExtendedCommandProcessor(BaseCommandProcessor):
         self.transport.loseConnection()
 
 
-# TODO: Only display appropriate commands.
-#       eg: if we're not logged in yet, it doesn't make sense to show
-#       'users' or 'tables' commands
 class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
     def __init__(self, client):
         ExtendedCommandProcessor.__init__(self, None)
@@ -125,28 +128,36 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         self.commands.extend(
                 [Command("connect",
                          "Connect to the given server.",
-                         self.do_connect, [argument.HOST_NAME, argument.PORT]),
+                         self.do_connect, [argument.HOST_NAME, argument.PORT],
+                         [self.require_disconnect]),
                  Command("disconnect",
                          "Disconnect from the current server.",
-                         self.do_disconnect, []),
+                         self.do_disconnect, [], [self.require_connect]),
 
                  Command("register", "Register the given username/password.",
                          self.do_register, [argument.USER_NAME,
-                                            argument.PASSWORD]),
+                                            argument.PASSWORD],
+                         [self.require_connect]),
                  Command("login", "Log in to the current server with the given "
                                   "username and password.",
-                         self.do_login, [argument.USER_NAME, argument.PASSWORD]),
+                         self.do_login, [argument.USER_NAME, argument.PASSWORD],
+                         [self.require_connect, self.require_logout]),
                  Command("users", "List the logged-in users.",
-                         self.do_users, []),
+                         self.do_users, [], [self.require_connect,
+                                             self.require_login]),
 
                  Command("tables", "List the available tables.",
-                         self.do_tables, []),
+                         self.do_tables, [], [self.require_connect,
+                                              self.require_login]),
                  Command("create-table", "Create a new table with the given name.",
-                         self.do_create_table, [argument.TABLE_NAME]),
+                         self.do_create_table, [argument.TABLE_NAME],
+                         [self.require_connect, self.require_login]),
                  Command("join-table", "Join the table with the given name.",
-                         self.do_join_table, [argument.TABLE_NAME]),
+                         self.do_join_table, [argument.TABLE_NAME],
+                         [self.require_connect, self.require_login]),
                  Command("leave-table", "Leave the table with the given name.",
-                         self.do_leave_table, [argument.TABLE_NAME])])
+                         self.do_leave_table, [argument.TABLE_NAME],
+                         [self.require_connect, self.require_login])])
 
     def do_connect(self, hostname, port=8777):
         def completeConnection(success):
@@ -215,3 +226,15 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
     def _getRoster(self, name):
         entries = "\n".join(getattr(self.client, name))
         self.sendLine(entries)
+
+    def require_connect(self):
+        return self.client.connected
+
+    def require_disconnect(self):
+        return not self.require_connect()
+
+    def require_login(self):
+        return self.client.avatar is not None
+
+    def require_logout(self):
+        return not self.require_login()
