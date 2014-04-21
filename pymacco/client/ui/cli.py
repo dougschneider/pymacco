@@ -120,9 +120,35 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         ExtendedCommandProcessor.__init__(self, None)
         self.client = client
 
+    def _initCommands(self):
+        ExtendedCommandProcessor._initCommands(self)
+        self.commands.extend(
+                [Command("connect",
+                         "Connect to the given server.",
+                         self.do_connect, [argument.HOST_NAME, argument.PORT]),
+                 Command("disconnect",
+                         "Disconnect from the current server.",
+                         self.do_disconnect, []),
+
+                 Command("register", "Register the given username/password.",
+                         self.do_register, [argument.USER_NAME,
+                                            argument.PASSWORD]),
+                 Command("login", "Log in to the current server with the given "
+                                  "username and password.",
+                         self.do_login, [argument.USER_NAME, argument.PASSWORD]),
+                 Command("users", "List the logged-in users.",
+                         self.do_users, []),
+
+                 Command("tables", "List the available tables.",
+                         self.do_tables, []),
+                 Command("create-table", "Create a new table with the given name.",
+                         self.do_create_table, [argument.TABLE_NAME]),
+                 Command("join-table", "Join the table with the given name.",
+                         self.do_join_table, [argument.TABLE_NAME]),
+                 Command("leave-table", "Leave the table with the given name.",
+                         self.do_leave_table, [argument.TABLE_NAME])])
+
     def do_connect(self, hostname, port=8777):
-        """connect <hostname> <port>: Connect to the given server.
-        """
         def completeConnection(success):
             if self.client.connected is True:
                 self.sendLine("Successfully connected to %s." % hostname)
@@ -134,19 +160,11 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         root.addCallback(completeConnection)
 
     def do_disconnect(self):
-        """ disconnect: Disconnect from the current server.
-        """
         host = self.client.host
         self.client.disconnect()
         self.sendLine("Disconnected from %s" % host)
 
     def do_register(self, username, password):
-        """register <username> <password>: Register the given
-           username/password.
-
-            Note that you must first be registered an logged-in to start or
-            join any games.
-        """
         def registerSuccess(avatar):
             self.sendLine("Successfully registered.")
 
@@ -154,9 +172,6 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         d.addCallbacks(registerSuccess, self.errback)
 
     def do_login(self, username, password):
-        """login <username> <password>: Log into the current server with
-            the given username/password.
-        """
         def loginSuccess(avatar):
             self.sendLine("Successfully logged in.")
 
@@ -167,18 +182,12 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         self.sendLine("Error: %s" % failure.getTraceback())
 
     def do_users(self):
-        """ users: List the logged-in users.
-        """
         self._getRoster('users')
 
     def do_tables(self):
-        """ tables: List the available tables.
-        """
         self._getRoster('tables')
 
     def do_create_table(self, name):
-        """ create table <name>: Create a new table with the given name.
-        """
         def createSuccess(table):
             self.sendLine("Created table '%s'." % name)
 
@@ -190,8 +199,6 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         #d.addCallback(join)
 
     def do_join_table(self, name):
-        """ join table <name>: Join the table with the given name.
-        """
         def joinSuccess(table):
             self.sendLine("Joined '%s'" % name)
 
@@ -199,8 +206,6 @@ class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
         d.addCallbacks(joinSuccess, self.errback)
 
     def do_leave_table(self, name):
-        """ leave table <name>: Leave the table with the given name.
-        """
         def leaveSuccess(table):
             self.sendLine("Left table '%s'" % name)
 
