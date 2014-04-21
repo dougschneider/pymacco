@@ -4,6 +4,8 @@ from twisted.internet import reactor
 from twisted.protocols import basic
 
 import pymacco
+from pymacco.client.command.command import Command
+import pymacco.client.command.argument as argument
 
 DEBUG = True
 
@@ -25,6 +27,11 @@ class BaseCommandProcessor(basic.LineReceiver):
 
     def __init__(self, factory):
         self.factory = factory
+        self.commands = []
+        self._initCommands()
+
+    def _initCommands(self):
+        self.commands = []
 
     def prompt(self):
         self.transport.write(self._prompt)
@@ -50,40 +57,53 @@ class BaseCommandProcessor(basic.LineReceiver):
             return
 
         commandParts = line.split()
-        command = commandParts[0].lower().replace('-', '_')
+        command = commandParts[0].lower()
         args = commandParts[1:]
         self._dispatch(command, args)
 
-    def _dispatch(self, command, args):
-        try:
-            method = getattr(self, 'do_' + command)
-        except AttributeError, e:
-            self.sendLine('Error: No such command.')
-        else:
-            try:
-                method(*args)
-            except TypeError, e:
-                if "%s() takes" % method.__name__ in str(e):
-                    self.sendLine("Invalid parameters for '%s'.\n"
-                    "Run 'help %s' for proper usage." % (command, command))
-            except Exception, e:
-                self.sendLine('Error: ' + str(e), prompt=False)
-                if DEBUG:
-                    self.sendLine(traceback.format_exc())
-                self.prompt()
+    def _dispatch(self, commandName, args):
+        command = None
+        for c in self.commands:
+            if c.name == commandName:
+                command = c
+
+        if command is None:
+            self.sendLine("Error: No such command.")
+            return
+
+        if args < len(command.requiredArguments):
+            self.sendLine(command.getHelp())
+            return
+
+        command.execute(*args)
 
 
 class ExtendedCommandProcessor(BaseCommandProcessor):
     """A `BaseCommandProcessor` subclass that implements some common commands.
     """
+    def _initCommands(self):
+        BaseCommandProcessor._initCommands(self)
+        self.commands.extend(
+                [Command("help",
+                         "List commands, or show help of the given command.",
+                         self.do_help, [argument.COMMAND]),
+                 Command("quit",
+                         "Quit this session.",
+                         self.do_quit, [])])
+
     def do_help(self, command=None):
-        """help [command]: List commands, or show help of the given command."""
         if command:
-            self.sendLine(getattr(self,
-                'do_' + command.replace('-', '_')).__doc__)
+            matchingCommand = None
+            for c in self.commands:
+                if command == c.name:
+                    matchingCommand = c
+
+            if matchingCommand is not None:
+                self.sendLine(matchingCommand.getHelp())
+            else:
+                self.sendLine("Error: No such command.")
         else:
-            commands = [cmd[len('do_'):].replace('_', '-') for cmd in dir(self)
-                        if cmd.startswith('do_')]
+            commands = [c.name for c in self.commands]
             self.sendLine('Valid commands:\n\t' + '\n\t'.join(commands))
 
     def do_quit(self):
@@ -97,6 +117,7 @@ class ExtendedCommandProcessor(BaseCommandProcessor):
 #       'users' or 'tables' commands
 class PymaccoClientCommandProcessor(ExtendedCommandProcessor):
     def __init__(self, client):
+        ExtendedCommandProcessor.__init__(self, None)
         self.client = client
 
     def do_connect(self, hostname, port=8777):
